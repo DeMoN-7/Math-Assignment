@@ -1,6 +1,7 @@
 # Write a Python function that calculates the expected 
 # number of individuals at a given time in a birth-death process.
 
+import numpy as np
 def expected_population(birth_rate, death_rate, initial_population, time):
     return initial_population * np.exp((birth_rate - death_rate) * time)
 
