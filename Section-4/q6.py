@@ -2,59 +2,33 @@
 # HMM using the Expectation-Maximization algorithm.
 
 import numpy as np
+from hmmlearn import hmm
 
-def em_algorithm(obs, n_states, n_obs, trans_prob, emit_prob, max_iter=100, epsilon=1e-6):
-    n_samples = len(obs)
-    for iteration in range(max_iter):
-        # Initialize alpha, beta, gamma, and xi arrays
-        alpha = np.zeros((n_states, n_samples))
-        beta = np.zeros((n_states, n_samples))
-        gamma = np.zeros((n_states, n_samples))
-        xi = np.zeros((n_states, n_states, n_samples - 1))
+def fit_hmm(data, n_components=2):
+    # Reshape data to be 2D as required by hmmlearn
+    data = np.array(data).reshape(-1, 1)
 
-        # Forward pass
-        alpha[:, 0] = emit_prob[:, obs[0]] * trans_prob[:, 0]  # Initial probabilities
-        for t in range(1, n_samples):
-            for state in range(n_states):
-                alpha[state, t] = np.sum(alpha[:, t - 1] * trans_prob[:, state]) * emit_prob[state, obs[t]]
+    # Create a Gaussian HMM instance
+    model = hmm.GaussianHMM(n_components=n_components, n_iter=1000)
 
-        # Backward pass
-        beta[:, n_samples - 1] = 1  # Last time step probabilities
-        for t in range(n_samples - 2, -1, -1):
-            for state in range(n_states):
-                beta[state, t] = np.sum(trans_prob[state, :] * emit_prob[:, obs[t + 1]] * beta[:, t + 1])
+    # Fit the model to the data
+    model.fit(data)
 
-        # E-step: Compute gamma and xi
-        for t in range(n_samples - 1):
-            denom = np.sum(alpha[:, t] * beta[:, t])
-            for i in range(n_states):
-                gamma[i, t] = (alpha[i, t] * beta[i, t]) / denom
-                for j in range(n_states):
-                    xi[i, j, t] = (alpha[i, t] * trans_prob[i, j] * emit_prob[j, obs[t + 1]] * beta[j, t + 1]) / denom
+    # Retrieve the transition and emission matrices
+    transition_matrix = model.transmat_  # Transition probabilities
+    means = model.means_                  # Emission means
+    covariances = model.covars_           # Emission covariances
 
-        # M-step: Update transition and emission probabilities
-        trans_prob = np.sum(xi, axis=2) / np.sum(gamma[:, :-1], axis=1)[:, np.newaxis]
-        
-        for i in range(n_states):
-            for j in range(n_obs):
-                emit_prob[i, j] = np.sum(gamma[i, obs == j]) / np.sum(gamma[i])
-
-    return trans_prob, emit_prob
+    return transition_matrix, means, covariances
 
 # Example usage
-obs = np.array([0, 1, 0, 1])  # Observed sequence (e.g., weather states)
-n_states = 2                   # Number of hidden states (e.g., sunny or rainy)
-n_obs = 2                      # Number of observed states (e.g., dry or wet)
+if __name__ == "__main__":
+    # Sample data: a sequence of observations
+    sample_data = [1.0, 2.0, 1.5, 2.5, 3.0, 2.0, 1.0]
 
-# Initial transition and emission probabilities
-trans_prob = np.array([[0.7, 0.3], [0.4, 0.6]])  # Transition probabilities
-emit_prob = np.array([[0.9, 0.1], [0.2, 0.8]])   # Emission probabilities
+    # Fit HMM and get parameters
+    trans_mat, emission_means, emission_covars = fit_hmm(sample_data)
 
-# Run the EM algorithm to estimate parameters
-trans_prob_estimated, emit_prob_estimated = em_algorithm(obs, n_states, n_obs,
-                                                          trans_prob.copy(), emit_prob.copy())
-
-print("Estimated Transition Probabilities:")
-print(trans_prob_estimated)
-print("Estimated Emission Probabilities:")
-print(emit_prob_estimated)
+    print("Transition Matrix:\n", trans_mat)
+    print("Emission Means:\n", emission_means)
+    print("Emission Covariances:\n", emission_covars)
